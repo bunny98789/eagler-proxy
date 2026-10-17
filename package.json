@@ -6,7 +6,6 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "ws": "^8.18.0",
-    "eaglercraftx-proxy": "^1.1.2"
+    "ws": "^8.18.0"
   }
 }
