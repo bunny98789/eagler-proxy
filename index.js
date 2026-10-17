@@ -5,7 +5,6 @@ const wss = new WebSocket.Server({ port: process.env.PORT || 8080 }, () => {
     console.log("Eaglercraft 24/7 Handshake Engine Active!");
 });
 
-// A simple helper function to generate compliant Eaglercraft handshake responses
 function makeEaglerString(str) {
     const bytes = Buffer.from(str, 'utf8');
     const len = Buffer.alloc(1);
@@ -20,7 +19,7 @@ wss.on('connection', (ws) => {
     ws.on('message', (message, isBinary) => {
         const buffer = Buffer.from(message);
 
-        // Detect if the browser client is asking for a server ping/MOTD
+        // Answers the custom Eaglercraft browser handshake layout
         if (buffer.length > 2 && buffer[0] === 0x01 && buffer[1] === 0x00) {
             console.log("Handling Eaglercraft ping query...");
             const motdBlock = JSON.stringify({
@@ -30,17 +29,16 @@ wss.on('connection', (ws) => {
                 icon: false
             });
             
-            // Send back a formatted Eaglercraft-compliant ping response packet
             const header = Buffer.from([0x01, 0x00]);
             const responsePacket = Buffer.concat([header, makeEaglerString(motdBlock)]);
             if (ws.readyState === WebSocket.OPEN) ws.send(responsePacket);
             return;
         }
 
-        // Handle active player logins by bridging them to the Aternos Java Core
+        // Connects incoming web players straight to your active dynamic Aternos host machine
         if (!javaClient) {
-            javaClient = net.createConnection({ host: 'deaththrowSMP.aternos.me', port: 53287 }, () => {
-                console.log("Bridging player connection directly to Aternos core.");
+            javaClient = net.createConnection({ host: 'roach.aternos.host', port: 53287 }, () => {
+                console.log("Bridging connection straight to the active Aternos dynamic core.");
             });
 
             javaClient.on('data', (data) => {
