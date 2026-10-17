@@ -2,43 +2,46 @@ const WebSocket = require('ws');
 const net = require('net');
 
 const wss = new WebSocket.Server({ port: process.env.PORT || 8080 }, () => {
-    console.log("Eaglercraft 24/7 Handshake Engine Active!");
+    console.log("Eaglercraft 1.12 Full Protocol Processor Active!");
 });
 
-function makeEaglerString(str) {
-    const bytes = Buffer.from(str, 'utf8');
-    const len = Buffer.alloc(1);
-    len.writeUInt8(bytes.length, 0);
-    return Buffer.concat([len, bytes]);
+function writeVarInt(value) {
+    const buffer = [];
+    while (true) {
+        if ((value & 0xFFFFFF80) === 0) {
+            buffer.push(value);
+            return Buffer.from(buffer);
+        }
+        buffer.push((value & 0x7F) | 0x80);
+        value >>>= 7;
+    }
 }
 
 wss.on('connection', (ws) => {
     ws.binaryType = 'arraybuffer';
     let javaClient = null;
+    let handshakeCompleted = false;
 
-    ws.on('message', (message, isBinary) => {
-        const buffer = Buffer.from(message);
+    ws.on('message', (message) => {
+        const msgBuffer = Buffer.from(message);
 
-        // Answers the custom Eaglercraft browser handshake layout
-        if (buffer.length > 2 && buffer[0] === 0x01 && buffer[1] === 0x00) {
-            console.log("Handling Eaglercraft ping query...");
-            const motdBlock = JSON.stringify({
-                motd: ["§bDeathThrow SMP", "§aEaglercraft 1.12 Online!"],
-                max: 100,
-                online: 0,
-                icon: false
+        // Safely catch and reply to browser status requests/server pings
+        if (msgBuffer.length > 2 && msgBuffer[0] === 0x01 && msgBuffer[1] === 0x00) {
+            const statusJSON = JSON.stringify({
+                version: { name: "Eaglercraft 1.12.2", protocol: 340 },
+                players: { max: 100, online: 1, sample: [] },
+                description: { text: "§bDeathThrow SMP §7| §aEaglercraft 24/7" }
             });
-            
-            const header = Buffer.from([0x01, 0x00]);
-            const responsePacket = Buffer.concat([header, makeEaglerString(motdBlock)]);
-            if (ws.readyState === WebSocket.OPEN) ws.send(responsePacket);
+            const dataBytes = Buffer.from(statusJSON, 'utf8');
+            const response = Buffer.concat([Buffer.from([0x01, 0x00]), writeVarInt(dataBytes.length), dataBytes]);
+            if (ws.readyState === WebSocket.OPEN) ws.send(response);
             return;
         }
 
-        // Connects incoming web players straight to your active dynamic Aternos host machine
+        // Initialize connection straight to the active dynamic Aternos host
         if (!javaClient) {
             javaClient = net.createConnection({ host: 'roach.aternos.host', port: 53287 }, () => {
-                console.log("Bridging connection straight to the active Aternos dynamic core.");
+                console.log("Protocol Bridge: Pipe established to Aternos core.");
             });
 
             javaClient.on('data', (data) => {
@@ -50,7 +53,7 @@ wss.on('connection', (ws) => {
         }
 
         if (javaClient.writable) {
-            javaClient.write(buffer);
+            javaClient.write(msgBuffer);
         }
     });
 
